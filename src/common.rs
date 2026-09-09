@@ -2319,6 +2319,20 @@ pub fn get_dst_align_rgba() -> usize {
     1
 }
 
+/// Solo entrantes: este PC puede ser visto, pero no puede ver a nadie.
+///
+/// Olympus: los cuartos de las modelos van asi. El monitor las ve y de ahi no
+/// pasa; una modelo no puede ver a otra ni al staff. RustDesk ya trae el modo
+/// (`conn-type = incoming`) pero solo lo lee de la configuracion firmada por
+/// ellos, que un fork no puede generar. Aqui se acepta ademas como opcion
+/// local, que el instalador pone con `--option conn-type incoming` (exige
+/// estar instalado y con permisos de administrador, asi que no lo puede
+/// quitar quien usa el PC).
+#[inline]
+pub fn solo_entrantes() -> bool {
+    config::is_incoming_only() || config::Config::get_option("conn-type") == "incoming"
+}
+
 pub fn read_custom_client(config: &str) {
     let Ok(data) = decode64(config) else {
         log::error!("Failed to decode custom client config");

@@ -289,7 +289,7 @@ impl UI {
     }
 
     fn is_incoming_only(&self) -> bool {
-        hbb_common::config::is_incoming_only()
+        crate::common::solo_entrantes()
     }
 
     pub fn is_outgoing_only(&self) -> bool {
