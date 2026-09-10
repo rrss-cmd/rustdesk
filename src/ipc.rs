@@ -940,12 +940,16 @@ async fn handle(data: Data, stream: &mut Connection) {
                         None
                     };
                 } else if name == "hide_cm" {
-                    value = if crate::hbbs_http::sync::is_pro() || crate::common::is_custom_client()
-                    {
-                        Some(hbb_common::password_security::hide_cm().to_string())
-                    } else {
-                        None
-                    };
+                    // Insite: ocultar la ventana de conexión es una regla del
+                    // estudio, no un extra de pago. RustDesk lo tenía tras
+                    // is_pro()/is_custom_client() y nuestra compilación quedó con
+                    // app_name "RustDesk" (is_custom_client=false), así que la
+                    // ventana con permisos y Desconectar salía SIEMPRE en el
+                    // cuarto de la modelo. Aquí se honra hide_cm() directamente:
+                    // sigue exigiendo contraseña fija + permanente + allow-hide-cm
+                    // (lo que el instalador pone solo en las salas), así que en
+                    // satélites y puestos la ventana sigue apareciendo.
+                    value = Some(hbb_common::password_security::hide_cm().to_string());
                 } else if name == "voice-call-input" {
                     value = crate::audio_service::get_voice_call_input_device();
                 } else if name == "unlock-pin" {

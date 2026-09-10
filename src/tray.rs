@@ -10,6 +10,22 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 pub fn start_tray() {
+    // Insite: en los cuartos del estudio el PC no muestra NADA —ni ícono en la
+    // bandeja—. El soporte es silencioso y el monitor no debe ver que hay algo
+    // corriendo. El instalador deja este marcador solo en las salas (tipo
+    // estudio); en puestos y satélites no está, así que ahí la bandeja sigue.
+    //
+    // Se usa un archivo y no la opción `hide-tray` a propósito: el proceso del
+    // tray corre en la sesión del usuario y no siempre ve las opciones que el
+    // instalador fija en la config del SERVICIO. El archivo no depende de eso.
+    #[cfg(windows)]
+    {
+        let pd = std::env::var("ProgramData").unwrap_or_else(|_| r"C:\ProgramData".to_string());
+        if std::path::Path::new(&pd).join("Insite").join("stealth").exists() {
+            return;
+        }
+    }
+
     if crate::ui_interface::get_builtin_option(keys::OPTION_HIDE_TRAY) == "Y" {
         #[cfg(not(target_os = "macos"))]
         {

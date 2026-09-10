@@ -555,10 +555,10 @@ class _CmHeaderState extends State<_CmHeader>
             ),
           ),
           Offstage(
-            offstage: !client.authorized ||
-                (client.type_() != ClientType.remote &&
-                    client.type_() != ClientType.file &&
-                    client.type_() != ClientType.camera),
+            // Insite: sin chat de RustDesk (el estudio usa InsiteChat). Este
+            // botón solo se deja para la lista de archivos; en pantalla/cámara
+            // abría el chat, así que ahí se oculta.
+            offstage: !client.authorized || client.type_() != ClientType.file,
             child: IconButton(
               onPressed: () => checkClickTime(client.id, () {
                 if (client.type_() == ClientType.file) {

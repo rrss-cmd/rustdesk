@@ -845,7 +845,10 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
     if (widget.ffi.connType == ConnType.defaultConn) {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
     }
-    toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
+    // Insite: sin chat de RustDesk. El estudio usa InsiteChat; un canal de
+    // texto paralelo entre monitor y modelo se sale de ese registro. La llamada
+    // de voz se conserva (va aparte, en _VoiceCallMenu).
+    // toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
     if (!isWeb) {
       toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));
     }
