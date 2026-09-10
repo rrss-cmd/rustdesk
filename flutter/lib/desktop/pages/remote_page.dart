@@ -117,6 +117,16 @@ class _RemotePageState extends State<RemotePage>
 
   final FocusNode _rawKeyFocusNode = FocusNode(debugLabel: "rawkeyFocusNode");
 
+  // Insite: al soltar el borde de la ventana, dejarla con la forma de la
+  // pantalla remota, para que la imagen la llene sin franjas negras.
+  Timer? _aspectoDebounce;
+  late final ScreenAdjustor _ajustadorAspecto = ScreenAdjustor(
+    id: widget.id,
+    ffi: _ffi,
+    // Estando en pantalla completa no se ajusta nada, asi que no hay de donde salir.
+    cbExitFullscreen: () {},
+  );
+
   // Debounce timer for pointer lock center updates during window events.
   // Uses kDefaultPointerLockCenterThrottleMs from consts.dart for the duration.
   Timer? _pointerLockCenterDebounceTimer;
@@ -261,6 +271,8 @@ class _RemotePageState extends State<RemotePage>
   void _cancelPointerLockCenterDebounceTimer() {
     _pointerLockCenterDebounceTimer?.cancel();
     _pointerLockCenterDebounceTimer = null;
+    _aspectoDebounce?.cancel();
+    _aspectoDebounce = null;
   }
 
   bool get _isSelectedTab {
@@ -572,6 +584,17 @@ class _RemotePageState extends State<RemotePage>
     super.onWindowResize();
     // Update pointer lock center when window is resized
     _updatePointerLockCenterIfNeeded();
+    _programarAjusteDeAspecto();
+  }
+
+  /// Mientras se arrastra el borde llegan decenas de eventos: se espera a que
+  /// pare antes de mover la ventana, o se pelearia con el raton del monitor.
+  void _programarAjusteDeAspecto() {
+    _aspectoDebounce?.cancel();
+    _aspectoDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _ajustadorAspecto.ajustarAlAspectoRemoto();
+    });
   }
 
   @override

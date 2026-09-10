@@ -1644,6 +1644,103 @@ class ScreenAdjustor {
     }
   }
 
+  /// Insite: deja la ventana con la MISMA forma que la pantalla remota.
+  ///
+  /// "Adjust Window" estira la ventana al tamano real del cuarto. Esto es otra
+  /// cosa: respeta el ancho que el monitor acaba de arrastrar y solo corrige el
+  /// alto, para que la imagen llene la ventana y no queden franjas negras
+  /// arriba ni a los lados. Se llama al terminar de redimensionar.
+  Future<void> ajustarAlAspectoRemoto() async {
+    if (isWeb || isFullscreen) return;
+    // Maximizada o en un estado que no se puede leer: no se toca.
+    if ((await isWindowMaximized()) != false) return;
+
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return;
+    final mediaSize = MediaQueryData.fromView(views.first).size;
+
+    await updateScreen();
+    final screen = _screen;
+    if (screen == null) return;
+
+    final canvasModel = ffi.canvasModel;
+    final anchoRemoto = canvasModel.getDisplayWidth().toDouble();
+    final altoRemoto = canvasModel.getDisplayHeight().toDouble();
+    if (anchoRemoto <= 0 || altoRemoto <= 0) return;
+
+    final wc = WindowController.fromWindowId(windowId);
+    final Rect wndRect;
+    try {
+      wndRect = await wc.getFrame();
+    } catch (_) {
+      return;
+    }
+
+    // En Windows el marco va en pixeles fisicos y la vista en logicos.
+    final double scale = isWindows ? screen.scaleFactor : 1.0;
+    final magicWidth = wndRect.width - mediaSize.width * scale;
+    final magicHeight = wndRect.height - mediaSize.height * scale;
+    // El marco no puede ser menor que su area de cliente: si sale negativo, las
+    // medidas nativas y las de Flutter aun no estan sincronizadas.
+    if (magicWidth < -0.1 || magicHeight < -0.1) return;
+
+    final horizontalEdges = CanvasModel.leftToEdge + CanvasModel.rightToEdge;
+    final verticalEdges = CanvasModel.topToEdge + CanvasModel.bottomToEdge;
+
+    double anchoImagen = (wndRect.width - magicWidth) / scale - horizontalEdges;
+    if (anchoImagen <= 0) return;
+    double ancho = wndRect.width;
+    double alto =
+        (anchoImagen * altoRemoto / anchoRemoto + verticalEdges) * scale +
+            magicHeight;
+
+    final isWayland = isLinux && bind.mainCurrentIsWayland();
+    final isX11 = isLinux && !isWayland;
+    await _updateLinuxWorkAreaCache(
+      screen: screen,
+      wndRect: wndRect,
+      isWayland: isWayland,
+      isX11: isX11,
+      forMenu: false,
+    );
+    final frameRect = await _getEffectiveScreenFrame(
+      screen: screen,
+      isWayland: isWayland,
+      isX11: isX11,
+      forMenu: false,
+    );
+    if (frameRect == null) return;
+
+    // No cabe a lo alto: entonces manda el alto y se recorta el ancho, que es
+    // preferible a que la ventana se salga de la pantalla.
+    if (alto > frameRect.height) {
+      alto = frameRect.height;
+      final altoImagen = (alto - magicHeight) / scale - verticalEdges;
+      if (altoImagen <= 0) return;
+      ancho = (altoImagen * anchoRemoto / altoRemoto + horizontalEdges) * scale +
+          magicWidth;
+    }
+    if (ancho > frameRect.width) return;
+    if (ancho < 300 || alto < 300) return;
+
+    // Ya esta en la forma correcta: sin esto, cada setFrame dispararia otro
+    // evento de resize y la ventana se quedaria temblando.
+    if ((alto - wndRect.height).abs() <= 2 && (ancho - wndRect.width).abs() <= 2) {
+      return;
+    }
+
+    double left = wndRect.left;
+    double top = wndRect.top;
+    if (left < frameRect.left) left = frameRect.left;
+    if (top < frameRect.top) top = frameRect.top;
+    if ((left + ancho) > frameRect.right) left = frameRect.right - ancho;
+    if ((top + alto) > frameRect.bottom) top = frameRect.bottom - alto;
+
+    try {
+      await wc.setFrame(Rect.fromLTWH(left, top, ancho, alto));
+    } catch (_) {}
+  }
+
   updateScreen() async {
     _screen = await _getCurrentScreen();
   }
