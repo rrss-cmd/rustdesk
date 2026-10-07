@@ -351,7 +351,8 @@ class ChatModel with ChangeNotifier {
       return;
     }
     if (text.isEmpty) return;
-    if (desktopType == DesktopType.cm) {
+    // Insite: un mensaje no puede destapar la ventana en el cuarto de la modelo.
+    if (desktopType == DesktopType.cm && !gFFI.serverModel.hideCm) {
       await showCmWindow();
     }
     String? peerId;

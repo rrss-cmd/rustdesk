@@ -289,12 +289,19 @@ void runConnectionManagerScreen() async {
     const DesktopServerPage(),
     MyTheme.currentThemeMode(),
   );
-  final hide = await bind.cmGetConfig(name: "hide_cm") == 'true';
-  gFFI.serverModel.hideCm = hide;
-  if (hide) {
-    await hideCmWindow(isStartup: true);
-  } else {
+  // Insite: en el cuarto de la modelo la ventana de conexión NUNCA debe verse.
+  // cmGetConfig("hide_cm") pregunta por IPC con 1 s de espera; si el servidor está
+  // ocupado arrancando la sesión, vuelve vacío y antes eso MOSTRABA la ventana (a
+  // veces la modelo veía el logo y el resumen de la conexión). Ahora arranca
+  // escondida y solo se muestra con un "false" explícito; si no hay respuesta, se
+  // sigue preguntando en segundo plano (satélites y puestos sí deben verla).
+  final hide = await _consultarHideCm(intentos: 3);
+  gFFI.serverModel.hideCm = hide != 'false';
+  if (hide == 'false') {
     await showCmWindow(isStartup: true);
+  } else {
+    await hideCmWindow(isStartup: true);
+    if (hide != 'true') _seguirConsultandoHideCm();
   }
   setResizable(false);
   // Start the uni links handler and redirect links to Native, not for Flutter.
@@ -302,6 +309,31 @@ void runConnectionManagerScreen() async {
 }
 
 bool _isCmReadyToShow = false;
+
+/// "true", "false" o "" si el servicio no contestó en ningún intento.
+Future<String> _consultarHideCm({int intentos = 1}) async {
+  for (var i = 0; i < intentos; i++) {
+    final v = await bind.cmGetConfig(name: "hide_cm");
+    if (v == 'true' || v == 'false') return v;
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+  return '';
+}
+
+/// Sin respuesta al arrancar: se sigue preguntando hasta 60 s. Mientras tanto la
+/// ventana queda escondida; si al final dice "false", se muestra.
+void _seguirConsultandoHideCm() async {
+  for (var i = 0; i < 30; i++) {
+    await Future.delayed(const Duration(seconds: 2));
+    final v = await _consultarHideCm();
+    if (v == 'true') return;
+    if (v == 'false') {
+      gFFI.serverModel.hideCm = false;
+      if (gFFI.serverModel.clients.isNotEmpty) await showCmWindow();
+      return;
+    }
+  }
+}
 
 showCmWindow({bool isStartup = false}) async {
   if (isStartup) {
